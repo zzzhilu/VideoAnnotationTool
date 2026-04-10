@@ -15,8 +15,10 @@ window.APP = {
   isDrawing: false,
   /** Tolerance for matching annotation timestamps (seconds) */
   TIME_TOLERANCE: 0.1,
-  /** Frame step size in seconds */
+  /** Frame step size in seconds (auto-detected, default 30fps) */
   FRAME_STEP: 1 / 30,
+  /** Detected video FPS (null until detected) */
+  detectedFPS: null,
 
   // ─── TAB SYSTEM ───
   tabs: [],
@@ -65,6 +67,7 @@ const btnImport      = $('#btnImport');
 const importInput    = $('#importInput');
 const annotCount     = $('#annotationCount');
 const frameHint      = $('#frameAnnotationHint');
+const fpsIndicator   = $('#fpsIndicator');
 const drawIndicator  = $('#drawIndicator');
 const canvasContainer= $('#canvasContainer');
 const timelineMarkers= $('#timelineMarkers');
@@ -72,6 +75,19 @@ const stageWrapper   = $('#stageWrapper');
 const dropOverlay    = $('#dropOverlay');
 
 APP.video = video;
+
+// ─── ACCEPTABLE VIDEO EXTENSIONS ───
+const VIDEO_EXTENSIONS = new Set([
+  'mp4','m4v','mov','webm','mkv','avi','ogv','ogg','3gp','3g2',
+  'ts','mts','m2ts','flv','wmv','mpg','mpeg','m2v','vob',
+]);
+
+/** Check if a file looks like a video (MIME or extension fallback) */
+function isVideoFile(file) {
+  if (file.type && file.type.startsWith('video/')) return true;
+  const ext = (file.name || '').split('.').pop().toLowerCase();
+  return VIDEO_EXTENSIONS.has(ext);
+}
 
 // ─── HELPERS ───
 function formatTime(sec) {
@@ -130,6 +146,64 @@ function setPlayState(playing) {
   iconPause.classList.toggle('hidden', !playing);
   canvasContainer.style.pointerEvents = playing ? 'none' : 'auto';
   drawIndicator.classList.toggle('hidden', playing);
+}
+
+// ─── FPS AUTO-DETECTION ───
+/**
+ * Auto-detect video FPS using requestVideoFrameCallback metadata.
+ * Falls back to 30fps if the API is unavailable (Safari, older browsers).
+ */
+function autoDetectFPS() {
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    const savedTime = video.currentTime;
+    const savedPaused = video.paused;
+
+    // Use a two-frame approach to measure FPS from mediaTime delta
+
+    // Use a single frame callback to read the metadata
+    let frameCount = 0;
+    let firstTime = null;
+    const onFrame = (_now, metadata) => {
+      frameCount++;
+      if (frameCount === 1) {
+        firstTime = metadata.mediaTime;
+        video.requestVideoFrameCallback(onFrame);
+      } else if (frameCount === 2) {
+        const delta = metadata.mediaTime - firstTime;
+        if (delta > 0) {
+          const fps = Math.round(1 / delta);
+          // Clamp to sensible range
+          if (fps >= 10 && fps <= 240) {
+            APP.detectedFPS = fps;
+            APP.FRAME_STEP = 1 / fps;
+            if (fpsIndicator) fpsIndicator.textContent = `${fps} fps`;
+          }
+        }
+        // Restore state
+        video.pause();
+        video.currentTime = savedTime;
+        if (!savedPaused) video.play();
+      }
+    };
+
+    video.requestVideoFrameCallback(onFrame);
+    // Briefly play to trigger callbacks (will be paused in onFrame)
+    if (video.paused) {
+      video.play().catch(() => {});
+    }
+  } else {
+    // Fallback: check common FPS from filename hints or default to 30
+    const name = (getActiveTab()?.fileName || '').toLowerCase();
+    let fps = 30;
+    if (name.includes('60fps') || name.includes('60p')) fps = 60;
+    else if (name.includes('50fps') || name.includes('50p')) fps = 50;
+    else if (name.includes('24fps') || name.includes('24p')) fps = 24;
+    else if (name.includes('25fps') || name.includes('25p')) fps = 25;
+
+    APP.detectedFPS = fps;
+    APP.FRAME_STEP = 1 / fps;
+    if (fpsIndicator) fpsIndicator.textContent = `${fps} fps`;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -251,6 +325,7 @@ function loadVideoFile(file) {
     timeDuration.textContent = formatTime(video.duration);
     timeline.max = 100;
     updateTimeDisplay();
+    autoDetectFPS();   // detect native FPS for accurate frame stepping
 
     // Switch to workspace
     landing.classList.add('hidden');
@@ -292,6 +367,7 @@ function switchTab(toId) {
     timeDuration.textContent = formatTime(tab.duration);
     setPlayState(false);
     updateTimeline();
+    autoDetectFPS();
     renderTimelineMarkers();
     if (window.resizeP5Canvas) window.resizeP5Canvas();
   }, { once: true });
@@ -351,7 +427,7 @@ landing.addEventListener('drop', (e) => {
   e.preventDefault();
   landing.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('video/')) loadVideoFile(file);
+  if (file && isVideoFile(file)) loadVideoFile(file);
 });
 
 // ═══════════════════════════════════════════
@@ -380,7 +456,7 @@ stageWrapper.addEventListener('drop', (e) => {
   e.preventDefault();
   dropOverlay.classList.add('hidden');
   const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('video/')) loadVideoFile(file);
+  if (file && isVideoFile(file)) loadVideoFile(file);
 });
 
 // ─── PLAY / PAUSE ───
@@ -399,6 +475,33 @@ function togglePlay() {
 video.addEventListener('play',  () => setPlayState(true));
 video.addEventListener('pause', () => setPlayState(false));
 video.addEventListener('ended', () => { setPlayState(false); video.currentTime = 0; });
+
+// ─── VIDEO ERROR HANDLING ───
+video.addEventListener('error', () => {
+  const err = video.error;
+  let msg = 'Failed to load video.';
+  if (err) {
+    switch (err.code) {
+      case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        msg = 'This video format is not supported by your browser.\n\n'
+            + 'Possible causes:\n'
+            + '• H.265/HEVC codec (not widely supported in browsers)\n'
+            + '• Uncommon container or codec combination\n\n'
+            + 'Tip: Re-encode with H.264 codec using tools like FFmpeg or HandBrake.';
+        break;
+      case MediaError.MEDIA_ERR_DECODE:
+        msg = 'The video file appears to be corrupted or uses an unsupported codec.';
+        break;
+      case MediaError.MEDIA_ERR_NETWORK:
+        msg = 'A network error occurred while loading the video.';
+        break;
+    }
+  }
+  alert(msg);
+  // Close the broken tab
+  const tab = getActiveTab();
+  if (tab) closeTab(tab.id);
+});
 
 // ─── VIDEO TIME UPDATES ───
 video.addEventListener('timeupdate', updateTimeline);

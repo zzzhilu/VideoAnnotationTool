@@ -28,6 +28,11 @@ A local-first, privacy-focused video annotation tool that runs entirely in your 
 - **v1 compatibility** — Import legacy single-video annotation files
 - **v2 multi-tab format** — Export/import annotations for all open tabs at once
 
+### Expanded Format Support
+- **Wide container support** — MP4, MOV, MKV, AVI, WebM, M4V, OGV, TS, FLV, and more
+- **FPS auto-detection** — Automatically detects native video framerate (24/25/30/50/60fps) for accurate frame stepping
+- **Codec error handling** — Clear error messages when an unsupported codec (e.g. H.265/HEVC) is detected, with re-encoding tips
+
 ### iPad / Apple Pencil Support
 - **Pointer Events** — Full support for stylus input with palm rejection
 - **High sample rate** — Uses `getCoalescedEvents()` for smooth Apple Pencil curves
@@ -122,6 +127,11 @@ MIT
 - **JSON 匯出** — 將所有標註（單一或多分頁）儲存為可攜的 JSON 檔案
 - **v1 相容** — 可匯入舊版單影片標註檔案
 - **v2 多分頁格式** — 一次匯出/匯入所有開啟分頁的標註
+
+### 擴充格式支援
+- **廣泛的容器支援** — MP4、MOV、MKV、AVI、WebM、M4V、OGV、TS、FLV 等
+- **FPS 自動偵測** — 自動偵測影片原生幀率（24/25/30/50/60fps），精確逐幀步進
+- **編碼錯誤處理** — 當遇到不支援的編碼（如 H.265/HEVC）時，顯示清晰的錯誤訊息和轉檔建議
 
 ### iPad / Apple Pencil 支援
 - **Pointer Events** — 完整支援觸控筆輸入與掌紋排斥

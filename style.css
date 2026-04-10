@@ -492,11 +492,20 @@ input[type="range"] { -webkit-appearance: none; appearance: none; background: no
   50%      { opacity: .4; }
 }
 
-/* ─── RESPONSIVE ─── */
+/* ─── RESPONSIVE ───*/
 @media (max-width: 700px) {
   .tab-bar { max-width: 45vw; }
   .tab-name { max-width: 80px; }
   .controls { flex-wrap: wrap; gap: .5rem; }
   .ctrl-timeline { order: 3; width: 100%; flex: unset; }
   .draw-tools { order: 2; }
+}
+
+/* ─── FPS INDICATOR ─── */
+.fps-indicator {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.04em;
 }
