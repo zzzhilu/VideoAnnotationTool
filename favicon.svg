@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1ed760"/>
+      <stop offset="100%" stop-color="#14a847"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded background -->
+  <rect width="32" height="32" rx="7" fill="#121212"/>
+  <!-- Play triangle -->
+  <polygon points="11,8 11,24 23,16" fill="url(#g)"/>
+  <!-- Pen stroke accent -->
+  <line x1="18" y1="6" x2="27" y2="3" stroke="#FF3B3B" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="27" cy="3" r="1.2" fill="#FF3B3B"/>
+</svg>
